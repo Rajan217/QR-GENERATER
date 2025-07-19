@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced QR Code Generator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+        }
+        /* Custom styles for color inputs to make them larger */
+        input[type="color"] {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            border: none;
+            width: 40px; /* Adjust size as needed */
+            height: 40px; /* Adjust size as needed */
+            padding: 0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        input[type="color"]::-moz-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-moz-color-swatch {
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        input[type="color"]:hover {
+            transform: scale(1.05);
+        }
+
+        /* Styles for the custom message box */
+        .custom-message-box {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .custom-message-box.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .custom-message-box-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .custom-message-box-content p {
+            margin-bottom: 1rem;
+            color: #374151;
+        }
+
+        .custom-message-box-content button {
+            background-color: #3b82f6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .custom-message-box-content button:hover {
+            background-color: #2563eb;
+        }
+
+        /* Loading indicator styles */
+        .loading-indicator {
+            display: none; /* Hidden by default */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            z-index: 10;
+        }
+        .loading-indicator.show {
+            display: block;
+        }
+
+        /* History list styling */
+        .history-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background-color: #f9fafb;
+            padding: 8px;
+        }
+        .history-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        .history-item:hover {
+            background-color: #e0e7ff; /* Light blue on hover */
+        }
+        .history-item-text {
+            flex-grow: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 10px;
+            color: #374151;
+        }
+        .history-item-delete {
+            background-color: #ef4444; /* Red */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.8em;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .history-item-delete:hover {
+            background-color: #dc2626;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md flex flex-col items-center space-y-6 border border-gray-200">
+        <h1 class="text-3xl font-bold text-gray-800 mb-4">Advanced QR Code Generator</h1>
+
+        <!-- QR Content Type Selection -->
+        <div class="w-full">
+            <label for="contentType" class="block text-gray-700 text-sm font-semibold mb-2">QR Content Type:</label>
+            <select id="contentType" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 ease-in-out text-gray-800">
+                <option value="text">Text / URL</option>
+                <option value="wifi">Wi-Fi Network</option>
+                <option value="contact">Contact Card (vCard)</option>
+                <option value="email">Email</option>
+                <option value="sms">SMS</option>
+                <option value="phone">Phone Number</option>
+                <option value="geo">Geo-location</option>
+            </select>
+        </div>
+
+        <!-- Dynamic Input Fields based on Content Type -->
+        <div id="textInputs" class="w-full space-y-4">
+            <label for="qrInput" class="block text-gray-700 text-sm font-semibold mb-2">Enter Text or URL:</label>
+            <input type="text" id="qrInput" placeholder="e.g., Hello World! or https://example.com"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 ease-in-out text-gray-800">
+        </div>
+
+        <div id="wifiInputs" class="w-full space-y-4 hidden">
+            <label for="wifiSsid" class="block text-gray-700 text-sm font-semibold mb-2">SSID (Network Name):</label>
+            <input type="text" id="wifiSsid" placeholder="MyHomeNetwork"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            <label for="wifiPassword" class="block text-gray-700 text-sm font-semibold mb-2">Password:</label>
+            <input type="password" id="wifiPassword" placeholder="NetworkPassword"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            <label for="wifiEncryption" class="block text-gray-700 text-sm font-semibold mb-2">Encryption:</label>
+            <select id="wifiEncryption" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+                <option value="WPA">WPA/WPA2</option>
+                <option value="WEP">WEP</option>
+                <option value="nopass">No Encryption</option>
+            </select>
+        </div>
+
+        <div id="contactInputs" class="w-full space-y-4 hidden">
+            <label for="contactName" class="block text-gray-700 text-sm font-semibold mb-2">Name:</label>
+            <input type="text" id="contactName" placeholder="John Doe"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            <label for="contactPhone" class="block text-gray-700 text-sm font-semibold mb-2">Phone:</label>
+            <input type="tel" id="contactPhone" placeholder="+15551234567"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            <label for="contactEmail" class="block text-gray-700 text-sm font-semibold mb-2">Email:</label>
+            <input type="email" id="contactEmail" placeholder="john.doe@example.com"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            <label for="contactAddress" class="block text-gray-700 text-sm font-semibold mb-2">Address:</label>
+            <input type="text" id="contactAddress" placeholder="123 Main St, Anytown, USA"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+        </div>
+
+        <div id="emailInputs" class="w-full space-y-4 hidden">
+            <label for="emailTo" class="block text-gray-700 text-sm font-semibold mb-2">To:</label>
+            <input type="email" id="emailTo" placeholder="recipient@example.com"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            <label for="emailSubject" class="block text-gray-700 text-sm font-semibold mb-2">Subject (Optional):</label>
+            <input type="text" id="emailSubject" placeholder="Regarding your QR code"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            <label for="emailBody" class="block text-gray-700 text-sm font-semibold mb-2">Body (Optional):</label>
+            <textarea id="emailBody" placeholder="Hello," rows="3"
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"></textarea>
+        </div>
+
+        <div id="smsInputs" class="w-full space-y-4 hidden">
+            <label for="smsNumber" class="block text-gray-700 text-sm font-semibold mb-2">Phone Number:</label>
+            <input type="tel" id="smsNumber" placeholder="+15551234567"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            <label for="smsMessage" class="block text-gray-700 text-sm font-semibold mb-2">Message (Optional):</label>
+            <textarea id="smsMessage" placeholder="Hello," rows="3"
+                      class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"></textarea>
+        </div>
+
+        <div id="phoneInputs" class="w-full space-y-4 hidden">
+            <label for="phoneNumber" class="block text-gray-700 text-sm font-semibold mb-2">Phone Number:</label>
+            <input type="tel" id="phoneNumber" placeholder="+15551234567"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+        </div>
+
+        <div id="geoInputs" class="w-full space-y-4 hidden">
+            <label for="geoLatitude" class="block text-gray-700 text-sm font-semibold mb-2">Latitude:</label>
+            <input type="number" id="geoLatitude" step="any" placeholder="34.0522"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            <label for="geoLongitude" class="block text-gray-700 text-sm font-semibold mb-2">Longitude:</label>
+            <input type="number" id="geoLongitude" step="any" placeholder="-118.2437"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+        </div>
+
+        <!-- Customization Options -->
+        <div class="w-full space-y-4 border-t border-gray-200 pt-6 mt-6">
+            <h2 class="text-xl font-semibold text-gray-800">Customization Options</h2>
+
+            <div class="flex items-center justify-between">
+                <label for="qrSize" class="text-gray-700 text-sm font-semibold">Size (px):</label>
+                <input type="number" id="qrSize" value="250" min="100" max="1000"
+                       class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            </div>
+
+            <div class="flex items-center justify-between">
+                <label for="qrColorDark" class="text-gray-700 text-sm font-semibold">Foreground Color:</label>
+                <input type="color" id="qrColorDark" value="#000000">
+            </div>
+
+            <div class="flex items-center justify-between">
+                <label for="qrColorLight" class="text-gray-700 text-sm font-semibold">Background Color:</label>
+                <input type="color" id="qrColorLight" value="#ffffff">
+            </div>
+
+            <div class="flex items-center justify-between">
+                <label for="qrLevel" class="text-gray-700 text-sm font-semibold">Error Correction:</label>
+                <select id="qrLevel" class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+                    <option value="L">L (7%)</option>
+                    <option value="M">M (15%)</option>
+                    <option value="Q">Q (25%)</option>
+                    <option value="H" selected>H (30%)</option>
+                </select>
+            </div>
+
+            <div class="flex items-center justify-between">
+                <label for="qrMargin" class="text-gray-700 text-sm font-semibold">Margin:</label>
+                <input type="number" id="qrMargin" value="4" min="0" max="20"
+                       class="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800">
+            </div>
+
+            <div class="w-full">
+                <label for="logoUpload" class="block text-gray-700 text-sm font-semibold mb-2">Upload Logo (Optional):</label>
+                <input type="file" id="logoUpload" accept="image/*"
+                       class="w-full text-gray-800 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                <button id="clearLogoBtn" class="mt-2 bg-red-500 hover:bg-red-600 text-white text-sm py-1 px-3 rounded-md hidden">Clear Logo</button>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <button id="generateBtn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75">
+            Generate QR Code
+        </button>
+
+        <button id="clearAllBtn"
+                class="w-full bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-75">
+            Clear All
+        </button>
+
+        <!-- QR Code Display Area -->
+        <div class="relative w-full flex justify-center items-center">
+            <canvas id="qrCanvas" class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex justify-center items-center"></canvas>
+            <div id="qrcodePlaceholder" class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 flex justify-center items-center min-h-[200px] min-w-[200px] hidden">
+                <p class="text-gray-500 text-sm">Enter content and click 'Generate'</p>
+            </div>
+            <div id="loadingIndicator" class="loading-indicator">Generating...</div>
+        </div>
+
+
+        <button id="downloadBtn"
+                class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75 mt-4 hidden">
+            Download QR Code
+        </button>
+
+        <button id="copyImageBtn"
+                class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-opacity-75 mt-2 hidden">
+            Copy Image to Clipboard
+        </button>
+
+        <!-- History Section -->
+        <div class="w-full space-y-4 border-t border-gray-200 pt-6 mt-6">
+            <h2 class="text-xl font-semibold text-gray-800">QR Code History</h2>
+            <div id="historyList" class="history-list">
+                <p class="text-gray-500 text-sm text-center">No history yet.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Message Box HTML -->
+    <div id="customMessageBox" class="custom-message-box">
+        <div class="custom-message-box-content">
+            <p id="customMessageText"></p>
+            <button id="customMessageBoxOkBtn">OK</button>
+        </div>
+    </div>
+
+    <!-- QRious library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+    <script>
+        // --- DOM Elements ---
+        const contentTypeSelect = document.getElementById('contentType');
+        const textInputsDiv = document.getElementById('textInputs');
+        const qrInput = document.getElementById('qrInput');
+
+        const wifiInputsDiv = document.getElementById('wifiInputs');
+        const wifiSsid = document.getElementById('wifiSsid');
+        const wifiPassword = document.getElementById('wifiPassword');
+        const wifiEncryption = document.getElementById('wifiEncryption');
+
+        const contactInputsDiv = document.getElementById('contactInputs');
+        const contactName = document.getElementById('contactName');
+        const contactPhone = document.getElementById('contactPhone');
+        const contactEmail = document.getElementById('contactEmail');
+        const contactAddress = document.getElementById('contactAddress');
+
+        const emailInputsDiv = document.getElementById('emailInputs');
+        const emailTo = document.getElementById('emailTo');
+        const emailSubject = document.getElementById('emailSubject');
+        const emailBody = document.getElementById('emailBody');
+
+        const smsInputsDiv = document.getElementById('smsInputs');
+        const smsNumber = document.getElementById('smsNumber');
+        const smsMessage = document.getElementById('smsMessage');
+
+        const phoneInputsDiv = document.getElementById('phoneInputs');
+        const phoneNumber = document.getElementById('phoneNumber');
+
+        const geoInputsDiv = document.getElementById('geoInputs');
+        const geoLatitude = document.getElementById('geoLatitude');
+        const geoLongitude = document.getElementById('geoLongitude');
+
+        const qrSize = document.getElementById('qrSize');
+        const qrColorDark = document.getElementById('qrColorDark');
+        const qrColorLight = document.getElementById('qrColorLight');
+        const qrLevel = document.getElementById('qrLevel');
+        const qrMargin = document.getElementById('qrMargin');
+
+        const logoUpload = document.getElementById('logoUpload');
+        const clearLogoBtn = document.getElementById('clearLogoBtn');
+        let uploadedLogo = null; // Stores the loaded image object
+
+        const generateBtn = document.getElementById('generateBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        const qrCanvas = document.getElementById('qrCanvas');
+        const qrcodePlaceholder = document.getElementById('qrcodePlaceholder');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const copyImageBtn = document.getElementById('copyImageBtn');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        const historyList = document.getElementById('historyList');
+
+        const customMessageBox = document.getElementById('customMessageBox');
+        const customMessageText = document.getElementById('customMessageText');
+        const customMessageBoxOkBtn = document.getElementById('customMessageBoxOkBtn');
+
+        let qriousInstance = null; // To store the QRious instance
+
+        // --- Utility Functions ---
+
+        /**
+         * Displays a custom message box.
+         * @param {string} message The message to display.
+         */
+        function showCustomMessage(message) {
+            customMessageText.textContent = message;
+            customMessageBox.classList.add('show');
+        }
+
+        /**
+         * Hides the custom message box.
+         */
+        function hideCustomMessage() {
+            customMessageBox.classList.remove('show');
+        }
+
+        /**
+         * Shows the loading indicator.
+         */
+        function showLoading() {
+            loadingIndicator.classList.add('show');
+            qrCanvas.classList.add('hidden');
+            qrcodePlaceholder.classList.add('hidden');
+            downloadBtn.classList.add('hidden');
+            copyImageBtn.classList.add('hidden');
+        }
+
+        /**
+         * Hides the loading indicator.
+         */
+        function hideLoading() {
+            loadingIndicator.classList.remove('show');
+            qrCanvas.classList.remove('hidden');
+        }
+
+        /**
+         * Clears all input fields and resets the QR code display.
+         */
+        function clearAll() {
+            // Clear text inputs
+            qrInput.value = '';
+            wifiSsid.value = '';
+            wifiPassword.value = '';
+            contactName.value = '';
+            contactPhone.value = '';
+            contactEmail.value = '';
+            contactAddress.value = '';
+            emailTo.value = '';
+            emailSubject.value = '';
+            emailBody.value = '';
+            smsNumber.value = '';
+            smsMessage.value = '';
+            phoneNumber.value = '';
+            geoLatitude.value = '';
+            geoLongitude.value = '';
+
+            // Reset customization options
+            qrSize.value = 250;
+            qrColorDark.value = '#000000';
+            qrColorLight.value = '#ffffff';
+            qrLevel.value = 'H';
+            qrMargin.value = 4;
+
+            // Clear logo
+            logoUpload.value = ''; // Clear file input
+            uploadedLogo = null;
+            clearLogoBtn.classList.add('hidden');
+
+            // Reset content type to default
+            contentTypeSelect.value = 'text';
+            updateInputVisibility();
+
+            // Clear QR code display
+            qrCanvas.getContext('2d').clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+            qrCanvas.classList.add('hidden');
+            qrcodePlaceholder.classList.remove('hidden');
+            downloadBtn.classList.add('hidden');
+            copyImageBtn.classList.add('hidden');
+            qriousInstance = null; // Reset QRious instance
+        }
+
+        /**
+         * Constructs the QR code data string based on the selected content type and inputs.
+         * @returns {string} The formatted QR code data string.
+         */
+        function getQRCodeData() {
+            const type = contentTypeSelect.value;
+            let data = '';
+
+            switch (type) {
+                case 'text':
+                    data = qrInput.value.trim();
+                    break;
+                case 'wifi':
+                    const ssid = wifiSsid.value.trim();
+                    const password = wifiPassword.value.trim();
+                    const encryption = wifiEncryption.value;
+                    data = `WIFI:S:${ssid};T:${encryption};P:${password};;`;
+                    break;
+                case 'contact':
+                    const name = contactName.value.trim();
+                    const phone = contactPhone.value.trim();
+                    const email = contactEmail.value.trim();
+                    const address = contactAddress.value.trim();
+                    data = `BEGIN:VCARD\nVERSION:3.0\nN:${name}\nTEL:${phone}\nEMAIL:${email}\nADR:;;${address}\nEND:VCARD`;
+                    break;
+                case 'email':
+                    const to = emailTo.value.trim();
+                    const subject = emailSubject.value.trim();
+                    const body = emailBody.value.trim();
+                    data = `mailto:${to}`;
+                    if (subject || body) {
+                        data += `?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                    }
+                    break;
+                case 'sms':
+                    const number = smsNumber.value.trim();
+                    const message = smsMessage.value.trim();
+                    data = `sms:${number}`;
+                    if (message) {
+                        data += `?body=${encodeURIComponent(message)}`;
+                    }
+                    break;
+                case 'phone':
+                    data = `tel:${phoneNumber.value.trim()}`;
+                    break;
+                case 'geo':
+                    const lat = geoLatitude.value.trim();
+                    const lon = geoLongitude.value.trim();
+                    if (lat && lon) {
+                        data = `geo:${lat},${lon}`;
+                    }
+                    break;
+            }
+            return data;
+        }
+
+        /**
+         * Updates the visibility of input fields based on the selected content type.
+         */
+        function updateInputVisibility() {
+            // Hide all input divs first
+            textInputsDiv.classList.add('hidden');
+            wifiInputsDiv.classList.add('hidden');
+            contactInputsDiv.classList.add('hidden');
+            emailInputsDiv.classList.add('hidden');
+            smsInputsDiv.classList.add('hidden');
+            phoneInputsDiv.classList.add('hidden');
+            geoInputsDiv.classList.add('hidden');
+
+            // Show the relevant input div
+            const selectedType = contentTypeSelect.value;
+            switch (selectedType) {
+                case 'text': textInputsDiv.classList.remove('hidden'); break;
+                case 'wifi': wifiInputsDiv.classList.remove('hidden'); break;
+                case 'contact': contactInputsDiv.classList.remove('hidden'); break;
+                case 'email': emailInputsDiv.classList.remove('hidden'); break;
+                case 'sms': smsInputsDiv.classList.remove('hidden'); break;
+                case 'phone': phoneInputsDiv.classList.remove('hidden'); break;
+                case 'geo': geoInputsDiv.classList.remove('hidden'); break;
+            }
+        }
+
+        /**
+         * Saves the current QR code configuration to local storage history.
+         * @param {object} config The QR code configuration object.
+         */
+        function saveToHistory(config) {
+            let history = JSON.parse(localStorage.getItem('qrHistory') || '[]');
+            // Prevent duplicates (simple check based on value and type)
+            const isDuplicate = history.some(item => item.value === config.value && item.type === config.type);
+            if (!isDuplicate) {
+                history.unshift(config); // Add to the beginning
+                if (history.length > 10) { // Keep history to a reasonable size
+                    history = history.slice(0, 10);
+                }
+                localStorage.setItem('qrHistory', JSON.stringify(history));
+                renderHistory();
+            }
+        }
+
+        /**
+         * Loads and renders the QR code history from local storage.
+         */
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('qrHistory') || '[]');
+            historyList.innerHTML = ''; // Clear current list
+
+            if (history.length === 0) {
+                historyList.innerHTML = '<p class="text-gray-500 text-sm text-center">No history yet.</p>';
+                return;
+            }
+
+            history.forEach((item, index) => {
+                const listItem = document.createElement('div');
+                listItem.className = 'history-item';
+                listItem.innerHTML = `
+                    <span class="history-item-text">${item.displayValue || item.value} (${item.type})</span>
+                    <button class="history-item-delete" data-index="${index}">Delete</button>
+                `;
+                listItem.addEventListener('click', (e) => {
+                    // Only trigger if not clicking the delete button
+                    if (!e.target.classList.contains('history-item-delete')) {
+                        loadFromHistory(item);
+                    }
+                });
+                historyList.appendChild(listItem);
+            });
+
+            // Add event listeners for delete buttons
+            historyList.querySelectorAll('.history-item-delete').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const indexToDelete = parseInt(e.target.dataset.index);
+                    deleteFromHistory(indexToDelete);
+                });
+            });
+        }
+
+        /**
+         * Deletes an item from the history.
+         * @param {number} index The index of the item to delete.
+         */
+        function deleteFromHistory(index) {
+            let history = JSON.parse(localStorage.getItem('qrHistory') || '[]');
+            history.splice(index, 1); // Remove item at index
+            localStorage.setItem('qrHistory', JSON.stringify(history));
+            renderHistory(); // Re-render history
+        }
+
+        /**
+         * Loads a QR code configuration from history into the input fields.
+         * @param {object} config The QR code configuration object to load.
+         */
+        function loadFromHistory(config) {
+            contentTypeSelect.value = config.type;
+            updateInputVisibility(); // Update UI based on type
+
+            // Populate inputs based on type
+            switch (config.type) {
+                case 'text':
+                    qrInput.value = config.value;
+                    break;
+                case 'wifi':
+                    const wifiMatch = config.value.match(/WIFI:S:(.*?);T:(.*?);P:(.*?);;/);
+                    if (wifiMatch) {
+                        wifiSsid.value = wifiMatch[1];
+                        wifiEncryption.value = wifiMatch[2];
+                        wifiPassword.value = wifiMatch[3];
+                    }
+                    break;
+                case 'contact':
+                    // This is a simplified parsing. Full vCard parsing is complex.
+                    contactName.value = config.value.match(/N:(.*?)\n/)?.[1] || '';
+                    contactPhone.value = config.value.match(/TEL:(.*?)\n/)?.[1] || '';
+                    contactEmail.value = config.value.match(/EMAIL:(.*?)\n/)?.[1] || '';
+                    contactAddress.value = config.value.match(/ADR:;;(.*?)\n/)?.[1] || '';
+                    break;
+                case 'email':
+                    const emailMatch = config.value.match(/mailto:(.*?)(?:\?subject=(.*))?(?:&body=(.*))?/);
+                    if (emailMatch) {
+                        emailTo.value = emailMatch[1] || '';
+                        emailSubject.value = decodeURIComponent(emailMatch[2] || '');
+                        emailBody.value = decodeURIComponent(emailMatch[3] || '');
+                    }
+                    break;
+                case 'sms':
+                    const smsMatch = config.value.match(/sms:(.*?)(?:\?body=(.*))?/);
+                    if (smsMatch) {
+                        smsNumber.value = smsMatch[1] || '';
+                        smsMessage.value = decodeURIComponent(smsMatch[2] || '');
+                    }
+                    break;
+                case 'phone':
+                    phoneNumber.value = config.value.replace('tel:', '');
+                    break;
+                case 'geo':
+                    const geoMatch = config.value.match(/geo:(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+                    if (geoMatch) {
+                        geoLatitude.value = geoMatch[1];
+                        geoLongitude.value = geoMatch[2];
+                    }
+                    break;
+            }
+
+            // Load customization options
+            qrSize.value = config.size || 250;
+            qrColorDark.value = config.colorDark || '#000000';
+            qrColorLight.value = config.colorLight || '#ffffff';
+            qrLevel.value = config.level || 'H';
+            qrMargin.value = config.margin || 4;
+
+            // Logo is not saved in history config, so it needs to be re-uploaded
+            logoUpload.value = '';
+            uploadedLogo = null;
+            clearLogoBtn.classList.add('hidden');
+
+            generateQRCode(); // Generate the QR code with loaded settings
+        }
+
+
+        // --- Main QR Code Generation Function ---
+        function generateQRCode() {
+            showLoading(); // Show loading indicator
+
+            const text = getQRCodeData();
+            const size = parseInt(qrSize.value);
+            const colorDark = qrColorDark.value;
+            const colorLight = qrColorLight.value;
+            const level = qrLevel.value;
+            const margin = parseInt(qrMargin.value);
+
+            console.log("Generating QR code for:", text);
+            console.log("Options:", { size, colorDark, colorLight, level, margin, hasLogo: !!uploadedLogo });
+
+            if (text === '') {
+                qrCanvas.classList.add('hidden');
+                qrcodePlaceholder.classList.remove('hidden');
+                qrcodePlaceholder.innerHTML = '<p class="text-gray-500 text-sm">Enter content and click \'Generate\'</p>';
+                downloadBtn.classList.add('hidden');
+                copyImageBtn.classList.add('hidden');
+                hideLoading();
+                return;
+            }
+
+            // Ensure canvas dimensions are correct for QRious
+            qrCanvas.width = size;
+            qrCanvas.height = size;
+
+            try {
+                if (!qriousInstance) {
+                    qriousInstance = new QRious({
+                        element: qrCanvas,
+                        size: size,
+                        value: text,
+                        level: level,
+                        background: colorLight,
+                        foreground: colorDark,
+                        padding: margin
+                    });
+                } else {
+                    qriousInstance.set({
+                        size: size,
+                        value: text,
+                        level: level,
+                        background: colorLight,
+                        foreground: colorDark,
+                        padding: margin
+                    });
+                }
+
+                console.log("QR code generated successfully using QRious.");
+
+                // If a logo is uploaded, draw it on top
+                if (uploadedLogo) {
+                    drawLogoOnQrCode(uploadedLogo);
+                }
+
+                downloadBtn.classList.remove('hidden');
+                copyImageBtn.classList.remove('hidden');
+                hideLoading(); // Hide loading indicator
+
+                // Save to history
+                saveToHistory({
+                    type: contentTypeSelect.value,
+                    value: text,
+                    displayValue: qrInput.value.trim() || wifiSsid.value.trim() || contactName.value.trim() || emailTo.value.trim() || smsNumber.value.trim() || phoneNumber.value.trim() || `${geoLatitude.value},${geoLongitude.value}`, // A more readable value for history
+                    size: size,
+                    colorDark: colorDark,
+                    colorLight: colorLight,
+                    level: level,
+                    margin: margin
+                });
+
+            } catch (error) {
+                console.error("Error generating QR code:", error);
+                qrCanvas.classList.add('hidden');
+                qrcodePlaceholder.classList.remove('hidden');
+                qrcodePlaceholder.innerHTML = '<p class="text-red-500 text-sm">Error generating QR code. Please try again.</p>';
+                downloadBtn.classList.add('hidden');
+                copyImageBtn.classList.add('hidden');
+                hideLoading(); // Hide loading indicator even on error
+                showCustomMessage("An error occurred while generating the QR code. Please check your input.");
+            }
+        }
+
+        /**
+         * Draws the uploaded logo onto the generated QR code canvas.
+         * @param {HTMLImageElement} logoImg The loaded image element for the logo.
+         */
+        function drawLogoOnQrCode(logoImg) {
+            const qrCodeSize = qrCanvas.width;
+            const logoSize = qrCodeSize * 0.25; // Logo is 25% of QR code size
+            const logoX = (qrCodeSize - logoSize) / 2;
+            const logoY = (qrCodeSize - logoSize) / 2;
+
+            // Draw a white background for the logo to ensure visibility
+            ctx.fillStyle = qrColorLight.value; // Use QR background color
+            ctx.fillRect(logoX, logoY, logoSize, logoSize);
+
+            // Draw the logo image
+            ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize);
+
+            // Optionally, add a border around the logo
+            ctx.strokeStyle = qrColorLight.value; // Border color same as background
+            ctx.lineWidth = 5; // Border thickness
+            ctx.strokeRect(logoX, logoY, logoSize, logoSize);
+        }
+
+        // --- Event Listeners ---
+
+        // Generate button click
+        generateBtn.addEventListener('click', generateQRCode);
+
+        // Clear All button click
+        clearAllBtn.addEventListener('click', clearAll);
+
+        // Download button click
+        downloadBtn.addEventListener('click', () => {
+            if (qrCanvas) {
+                const url = qrCanvas.toDataURL("image/png");
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'qrcode.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                console.log("QR code download initiated.");
+            } else {
+                showCustomMessage('No QR code to download. Please generate one first.');
+            }
+        });
+
+        // Copy Image button click
+        copyImageBtn.addEventListener('click', () => {
+            if (!qrCanvas) {
+                showCustomMessage('No QR code to copy. Please generate one first.');
+                return;
+            }
+
+            // Attempt to copy to clipboard using modern API first
+            if (navigator.clipboard && navigator.clipboard.write) {
+                qrCanvas.toBlob(blob => {
+                    if (blob) {
+                        const item = new ClipboardItem({ "image/png": blob });
+                        navigator.clipboard.write([item]).then(() => {
+                            showCustomMessage('QR code copied to clipboard!');
+                            console.log('QR code copied to clipboard via Clipboard API.');
+                        }).catch(err => {
+                            console.error('Failed to copy QR code to clipboard via Clipboard API:', err);
+                            // Fallback to execCommand if Clipboard API fails
+                            copyImageFallback();
+                        });
+                    } else {
+                        showCustomMessage('Failed to create image blob for copying.');
+                    }
+                }, 'image/png');
+            } else {
+                // Fallback for older browsers or if Clipboard API not available
+                copyImageFallback();
+            }
+        });
+
+        function copyImageFallback() {
+            // This method is generally less reliable and might not work in all iframe environments
+            // due to security restrictions.
+            try {
+                const img = new Image();
+                img.src = qrCanvas.toDataURL("image/png");
+                img.style.position = 'absolute';
+                img.style.left = '-9999px'; // Hide off-screen
+                document.body.appendChild(img);
+
+                const range = document.createRange();
+                range.selectNode(img);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                document.execCommand('copy');
+                window.getSelection().removeAllRanges();
+                document.body.removeChild(img);
+                showCustomMessage('QR code copied to clipboard (fallback method).');
+                console.log('QR code copied to clipboard via execCommand fallback.');
+            } catch (err) {
+                console.error('Failed to copy QR code to clipboard using fallback:', err);
+                showCustomMessage('Failed to copy QR code to clipboard. Your browser might not support this feature or it\'s restricted in this environment.');
+            }
+        }
+
+
+        // Input field Enter key press to generate
+        qrInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                generateQRCode();
+            }
+        });
+
+        // Content type select change
+        contentTypeSelect.addEventListener('change', updateInputVisibility);
+
+        // Logo upload handling
+        logoUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        uploadedLogo = img;
+                        clearLogoBtn.classList.remove('hidden');
+                        generateQRCode(); // Regenerate QR with logo
+                    };
+                    img.onerror = () => {
+                        showCustomMessage('Could not load image. Please ensure it is a valid image file.');
+                        logoUpload.value = ''; // Clear file input
+                        uploadedLogo = null;
+                        clearLogoBtn.classList.add('hidden');
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                uploadedLogo = null;
+                clearLogoBtn.classList.add('hidden');
+                generateQRCode(); // Regenerate QR without logo
+            }
+        });
+
+        // Clear Logo button
+        clearLogoBtn.addEventListener('click', () => {
+            logoUpload.value = '';
+            uploadedLogo = null;
+            clearLogoBtn.classList.add('hidden');
+            generateQRCode(); // Regenerate QR without logo
+        });
+
+        // Close custom message box
+        customMessageBoxOkBtn.addEventListener('click', hideCustomMessage);
+
+        // --- Initialization ---
+        window.onload = () => {
+            updateInputVisibility(); // Set initial input visibility
+            renderHistory(); // Load and display history
+            // Initial state: Set up placeholder and hide canvas
+            qrCanvas.classList.add('hidden');
+            qrcodePlaceholder.classList.remove('hidden');
+            downloadBtn.classList.add('hidden');
+            copyImageBtn.classList.add('hidden');
+            // Optionally, generate a default QR code on load
+            qrInput.value = "Hello Gemini!";
+            generateQRCode();
+        };
+    </script>
+</body>
+</html>
